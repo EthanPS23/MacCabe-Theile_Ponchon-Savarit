@@ -1,0 +1,240 @@
+% Created by Ethan Shipley
+% Function to draw the steps for a MacCabe and Thiele diagram and Ponchon
+% method
+% Xd is the distillate mol or mass fraction
+% Xb is the bottoms mol or mass fraction
+% ya is the phase equilibrium curve y-coordinates
+% X is the x coordinates
+% ys is the linear function for the stripping section
+% yr is the linear function for the rectifying section
+% fs is the desired number of stages in either the rectifying or stripping
+% section of the distillation column. If optimum location is desired then
+% enter -1 for fs.
+% r is where the user defines if the desired number of stages is in the
+% rectifying or stripping section. To designate stripping enter 'S', and
+% for rectifying section enter 'R'.
+% h is for the liquid enthalpy
+% H is the gas enthalpy
+% yy is the the equation for the line between Qp, Qpp, and F.
+function []=fponchonv2(Xd,Xb,ya,X,ys,yr,h,H,yy,fs,r)
+ii=0;
+f=@(x) ya(x);
+funct=@(x) yr(x)-ys(x);
+xinit=0.5;
+xint=fnew(funct,xinit);
+hinit=h(0.5);
+hfunct=@(x) yy(x)-h(x);
+hint=fnew(hfunct,hinit);
+ch=-1;
+Qpp=yy(Xb);
+Qp=yy(Xd);
+if r=='S' || r=='s'
+    Xx=Xb;
+    Xdd=Xb;
+    yl=f(Xx);
+    funct=@(x) ys(x)-yl;
+    xinit=Xdd;
+    x3=fnew(funct,xinit); % Finds the x location where horizontal line intersects equilibrium line
+    yml=@(x) ((h(x3)-Qpp)./(x3-Xb)).*(x-x3)+h(x3);
+    funct=@(x) H(x)-yml(x);
+    xinit=x3;
+    x2=fnew(funct,xinit);
+    xg1=[Xx; Xx;x2];% x's for the first step line
+    yg1=[Qpp,h(Xx),H(x2)];% y's for the first step line
+    xg2=[x2; x3];% x's for the second step line
+    yg2=[H(x2),h(x3)];% y's for the second step line
+    figure(2)
+    hold on
+    plot(xg1,yg1,'g',xg2,yg2,'g');
+    hold on
+    figure(2)
+    hold on
+    figure(1)
+    plot([Xx x3], [yl yl],'g');
+    %plot(xg1,yg1,'g',xg2,yg2,'g');
+    ii=ii+1;
+    Xx=x3;
+    Xdd=h(x3);% make the new x on equilibrium the bottom of last step
+    clear yl yu xl xu Tl Tu xg1 xg2 yg1 yg2 T x y
+    while (true)
+        %% For loop to find lower and upper bounds for y, x and T
+        yk=f(Xx);
+        funct=@(x) ys(x)-yk;
+        if Xx>xint && (fs==-1)
+            funct=@(x) yr(x)-yk;
+        elseif ii>(fs-1) && fs~=-1 && Xx<xint % Checks if stepping off yr 
+            % past intercept of stripping and rectifying operating lines
+            funct=@(x) yr(x)-yk;
+            ch=1;
+        elseif ~(Xx>xint && (fs==-1)) && ~(ii>(fs-1) && fs~=-1) && x3>xint
+            % Checks if stepping off ys past intercept of stripping and 
+            % rectifying operating lines
+            funct=@(x) ys(x)-yk;
+            ch=0;
+        %
+        elseif ii>(fs-1) && fs~=-1
+            funct=@(x) yr(x)-yk;
+        else
+            funct=@(x) ys(x)-yk;
+        end
+        xinit=Xx;
+        x3=fnew(funct,xinit);
+        if x3>xint && fs==-1
+            funct=@(x) yr(x)-yk;
+            xinit=Xx;
+            x3=fnew(funct,xinit);
+        elseif (fs-1)==ii && Xx>xint
+            % Checks if stepping off ys past intercept of stripping and 
+            % rectifying operating lines at desired stage
+            ch=0;
+            funct=@(x) yr(x)-yk;
+            xinit=Xx;
+            x3=fnew(funct,xinit);
+        elseif (fs-1)==ii
+            funct=@(x) yr(x)-yk;
+            xinit=Xx;
+            x3=fnew(funct,xinit);
+        end
+        
+        if x3>=hint
+            yl=@(x) ((Qp-h(x3))./(Xd-x3)).*(x-x3)+h(x3);
+        else
+            yl=@(x) ((h(x3)-Qpp)./(x3-Xb)).*(x-x3)+h(x3);
+        end
+        funct=@(x) H(x)-yl(x);
+        xinit=x3;
+        x2=fnew(funct,xinit);
+        xg1=[Xx;x2];% x's for the first step line
+        yg1=[h(Xx),H(x2)];% y's for the first step line
+        xg2=[x2; x3];% x's for the second step line
+        yg2=[H(x2),h(x3)];% y's for the second step line
+        figure(2)
+        if x3>Xd
+            x3=yk;
+        end
+        hold on
+        plot(xg1,yg1,'g',xg2,yg2,'g');
+        figure(1)
+        hold on
+        plot([Xx x3],[yk yk], 'g');
+
+        ii=ii+1;
+        if x3<=Xb || x3>=Xd
+            disp('The approximate number of stages is: ');
+            disp(ii);
+            break% break while if past Xb or Xd to stop step function
+        end
+        Xx=x3;
+        Xdd=h(x3);% make the new x on equilibrium the bottom of last step
+        clear yl yu xl xu Tl Tu xg1 xg2 yg1 yg2 T x y
+    end
+    if fs~=-1 && ch==0
+        xl=Xb;
+        funct=@(x) f(x)-ys(x);
+        xinit=xint;
+        xu=fnew(funct,xinit);
+        hold on
+        fplot(ys,[xl xu],'m')
+    elseif fs~=-1 && ch==1
+        xu=Xd;
+        funct=@(x) f(x)-yr(x);
+        xinit=Xb;
+        xl=fnew(funct,xinit);
+        hold on
+        fplot(yr,[xl xu],'m')
+    end
+elseif r=='R' || r=='r'
+    Xx=Xd;
+    Xdd=Xd;
+    xch=Xx;
+    funct=@(x) f(x)-Xdd;
+    xinit=Xdd;
+    x=fnew(funct,xinit); % Finds the x location where horizontal line intersects equilibrium line
+    y=h(x);
+    xg1=[Xx; Xx; Xx];% x's for the first step line
+    yg1=[Qp,H(Xx),h(Xx)];% y's for the first step line
+    xg2=[x; Xx];% x's for the second step line
+    yg2=[y,H(Xx)];% y's for the second step line
+    figure(2)
+    hold on
+    plot(xg1,yg1,'m',xg2,yg2,'g');
+    hold on
+    figure(1)
+    plot([Xdd x], [Xdd Xdd],'g');
+    ii=ii+1;
+    Xx=x;
+    Xdd=y;% make the new x on equilibrium the bottom of last step
+    clear yl yu xl xu Tl Tu xg1 xg2 yg1 yg2 T x y
+    while (true)
+        xch=Xx;
+        %% For loop to find lower and upper bounds for y, x and T
+        if Xx>=hint
+            yl=@(x) ((Qp-h(Xx))./(Xd-Xx)).*(x-Xx)+h(Xx);
+        else
+            yl=@(x) ((h(Xx)-Qpp)./(Xx-Xb)).*(x-Xx)+h(Xx);
+        end
+        funct=@(x) yl(x)-H(x);
+        xinit=Xx;
+        x2=fnew(funct,xinit);
+        y2=yl(x2);
+        if Xx>xint && fs==-1
+            ynot=yr(x2);
+        elseif ii<=(fs-1) && fs~=-1 && Xx<xint
+            ynot=yr(x2);
+            ch=0;
+        elseif ~(Xx>xint && (fs==-1)) && ~(ii<=(fs-1) && fs~=-1) && Xx>xint
+            ynot=ys(x2);
+            ch=1;
+        elseif ii<=(fs-1) && fs~=-1
+            ynot=yr(x2);
+        elseif Xx<xint && x2>=xint && fs==-1
+            ynot=yr(x2);
+        elseif Xx<xint && x2>=xint && ii<=fs
+            ynot=ys(x2);
+            ch=1;
+        else
+            ynot=ys(x2);
+        end
+        funct=@(x) f(x)-ynot;
+        xinit=x2;
+        x3=fnew(funct,xinit);
+        y3=h(x3);
+
+        xg1=[Xx; x2];% x's for the first step line
+        yg1=[h(Xx),y2];% y's for the first step line
+        xg2=[x3; x2];% x's for the second step line
+        yg2=[y3,y2];% y's for the second step line
+        hold on
+        figure(2)
+        plot(xg1,yg1,'g',xg2,yg2,'g');
+        ii=ii+1;
+        hold on
+        figure(1)
+        plot([x2 x3],[f(x3) f(x3)], 'g');
+        if abs(x3-xch)<=1E-5 %|| ii==50
+            disp('Does not converge');
+            break
+        end
+        if x3<=Xb || x3>=Xd
+            disp('The approximate number of stages is: ');
+            disp(ii);
+            break% break while if past Xb or Xd to stop step function
+        end
+        Xx=x3;
+    end
+    if fs~=-1 && ch==0
+        xu=Xd;
+        funct=@(x) f(x)-yr(x);
+        xinit=Xb;
+        xl=fnew(funct,xinit);
+        hold on
+        fplot(yr,[xl xu],'m')
+    elseif fs~=-1 && ch==1
+        xl=Xb;
+        funct=@(x) f(x)-ys(x);
+        xinit=Xd;
+        xu=fnew(funct,xinit);
+        hold on
+        fplot(ys,[xl xu],'m')
+    end
+end

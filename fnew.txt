@@ -1,0 +1,23 @@
+function [t]=fnew(f,initguess)
+% Uses Newtons method to solve for x
+%%
+format long
+h=@(t) sqrt(eps).*t;
+tph=@(t) t+h(t);
+dt=@(t) tph(t)-t;
+Funct=@(t) f(t);
+dFunct=@(t) (Funct(tph(t))-Funct(t))./dt(t);
+tol=0.000000001;
+%n= length(f);
+%for i=1:n
+T=initguess;
+for j=1:100
+    Tn=T-(Funct(T)./dFunct(T));
+    if abs((T-Tn)./Tn)<tol
+        T=Tn;
+        break
+    end
+    T=Tn;
+end
+t=T;
+%end

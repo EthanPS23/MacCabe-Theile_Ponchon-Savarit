@@ -1,0 +1,35 @@
+%   In order to run this program it requires fnew.m and steptest.m
+%	Created by Ethan Shipley
+%% 
+clear all
+format long
+close all
+%% USER DEFINED FUNCTIONS AND X's
+X=(1:-0.005:0)';
+P=0.8857938158;
+xb=0.14; %change water is the light key
+xd=0.542623827; %change water is the light key
+Aab=0.61233; % Wilson coefficient water to n-propanol
+Aba=0.04793; % Wilson coefficient n-propanol to water
+Ga=@(x) exp((1-x).*((Aab./(Aab+x-Aab.*x))-(Aba./(1+(Aba-1).*x))))./(x-x.*Aab+Aab);
+Gb=@(x) exp(x.*((Aba./(Aba+(1-x)-Aba.*(1-x)))-(Aab./(1+(Aab-1).*(1-x)))))./((1-x)-(1-x).*Aba+Aba);
+Pas=@(t) exp(11.6834-(3816.44./((t+273.15)-46.13)));% Vapour Pressure Water
+Pbs=@(t) exp(10.9237-(3166.38./((t+273.15)-80.15)));% Vapour Pressure N-Propanol
+Funct=@(t) (X.*Ga(X)./P).*Pas(t)+((1-X).*Gb(X)./P).*Pbs(t)-1;
+initguess=84.549;
+
+t=fnew(Funct,initguess);% Function to find needed values such as temperature or y's
+
+ya=X.*Ga(X).*Pas(t)./P;% Function for equilibrium curve
+
+Xd=xd; Xb=xb;% Xd=Distillate frac, Xb=Bottoms frac
+XX=(0:+0.005:1)';
+%% 
+%% Plotting
+plot(X,ya,X,X)% Plot 45 degree curve and equilibrium curve
+axis equal
+hold on
+%% Steps
+steptest(Xd,Xb,ya,X)% Plot the steps to determine stages
+axis([0, 0.553834449327514 , 0, 0.553834449327514])
+%% END

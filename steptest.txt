@@ -1,0 +1,56 @@
+% Program determines the ideal number of stages for a distillation column using MacCabe and Thiele
+% Created by Ethan Shipley
+function []=steptest(Xd,Xb,ya,X)
+n=length(X); ii=0;
+[qq, S]=polyfit(X,ya,n);
+f=@(x) polyval(qq,x,S);
+while (true)
+    yu=1; yl=0; y=-1;xl=-1;xu=-1;x=-1;
+    %% For loop to find lower and upper bounds for y, x and T
+    for i=1:n 
+        if ya(i,:)<= Xd && ya(i,:)>=yl
+            yl=ya(i,:);
+            xl=X(i,:);
+        end
+        if ya(i,:)>=Xd && ya(i,:)<=yu
+            yu=ya(i,:);
+            xu=X(i,:);
+        end
+        if ya(i,:)==Xd
+            y=ya(i,:);
+            x=X(i,:);
+        end
+        %if i==n && y==-1
+        %    clear y;
+        %end
+        if i==n && y~=-1
+            clear yl yu;
+        end
+    end
+    %% For loop to find the T and x values at needed step location
+    for i=1:100
+        x=(xl+xu)/2;
+        if f(x)==0 || (xu-xl)/2<=eps
+            break
+        end
+        if sign(f(x)-Xd)==sign(f(xl)-Xd)
+            xl=x;
+        else
+            xu=x;
+        end
+    end
+    xg1=[x; Xd];% x's for the horizontal step line
+    yg1=[Xd,Xd];% y's for the horizontal step line
+    xg2=[x; x];% x's for the vertical step line
+    yg2=[Xd,x];% y's for the vertical step line
+    hold on
+    plot(xg1,yg1,'r',xg2,yg2,'r');
+    ii=ii+1;
+    if x<=Xb || x>=Xd
+        disp('The approximate minimum number of stages is: ');
+        disp(ii);
+        break% break while if past Xb or Xd to stop step function
+    end
+    Xd=x;% make the new x on equilibrium the bottom of last step
+    clear yl yu xl xu Tl Tu xg1 xg2 yg1 yg2 T x y
+end

@@ -1,0 +1,4 @@
+function [mm]=fequil(funct, x, initguess)
+format long
+f=@(t) funct(t,x);
+mm=fnew(f,initguess);% Function to find needed values such as temperature or y's

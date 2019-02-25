@@ -1,0 +1,94 @@
+%   In order to run this program it requires fnew.m and steptest.m
+%   Sources for Partial pressures: http://pubs.acs.org/doi/pdf/10.1021/je9601467
+%   Sources for Activity coefficient formula: http://www.chempap.org/file_access.php?file=552a71.pdf
+%   Sources for Wilson coefficients: Thermosolver
+%   Assume fugacity coefficient is 1.
+% 	Created by Ethan Shipley
+%% Clears all matlab data, closes windows, and sets the number format
+clear all
+format long
+close all
+%% USER DEFINED FUNCTIONS AND X's
+X=(1:-0.005:0)';
+
+zf=3.704803E-01; %chnge water is the light key
+xb=0.026863731;%0.035770150265;%0.035770136838;%0.0292776409;%0.0289834316407;%0.028957975176;%0.02962679456; %change water is the light key 0.025 best for 8 tray
+xd=0.528094247; %change water is the light key
+R=0.922594599;
+Vbar=0.5; %change
+
+P=0.88739382784; % bar
+Tf=69; %Feed temperature
+Tbub=84.876; %Bubble point of feed at xf
+F=3.34593E-02;
+D=F*((zf-xb)/(xd-xb));
+B=F*((zf-xd)/(xb-xd));
+if B+D~=F
+    disp('No')
+end
+
+%% Start creation finding value of q and creating q-line
+
+cprop=@(t) (88.080+.40224.*(t+273.15)-1.3032E-3.*(t+273.15).^2+1.9677E-6.*(t+273.15).^3)./1000;
+
+hprop=@(t) 52.06.*exp(.8386.*((t+273.15)./536.7)).*(1-((t+273.15)./536.7)).^.6888;
+
+cwat=@(t) (-203.606+1523.29.*((t+273.15)./1000)-3196.413.*((t+273.15)./1000).^2+2474.455.*((t+273.15)./1000).^3+3.855326./((t+273.15)./1000).^2)./1000;
+
+hwat=@(t) (2257.6.*((374.15-t)./374.15).^.375).*18.02./1000;
+
+cpl=@(x,tf) x*cprop(tf)+(1-x)*cwat(tf);
+hvap=@(x,tf) x*hprop(tf)+(1-x)*hwat(tf);
+
+q=@(x,tf,tb) 1+((cpl(x,tf)*(tb-tf))/hvap(x,tf));
+yq=@(x) (q(x,Tf,Tbub)/(q(x,Tf,Tbub)-1))*x-(zf/(q(x,Tf,Tbub)-1)); % q-line equation
+yqq=yq(1-zf);
+%% End q-line
+%http://my.chemeng.queensu.ca/courses/CHEE222/Matlab/OnlineTutorial2.pdf
+
+yr=@(x) (R/(R+1))*x+(xd/(R+1)); % rectifying section
+
+xinit=.55; %change, inititial x guess for intercept
+funct=@(x) yr(x)-yq(x);
+xm=fnew(funct,xinit); %x intercept
+mmm=(yr(xm)-xb)/(xm-xb);
+vb=1/(mmm-1);
+ys=@(x) ((vb+1)/vb)*x-(xb/vb); % stripping section line
+
+ym=yr(xm); %y intercept
+xinit=.30; %change to initial guess for where rectifying line intercepts 45 degree line
+funct=@(x) yr(x)-x;
+xrm=fnew(funct,xinit);%
+xinit=.1; % change to initial guess for where stripping line intercepts 45 degree line
+funct=@(x) ys(x)-x;
+xsm=fnew(funct,xinit);
+
+yc=[xb ym xd];
+xc=[xb xm xd];
+
+
+Aab=0.61233; % Wilson coefficient water to n-propanol
+Aba=0.04793; % Wilson coefficient n-propanol to water
+Ga=@(x) exp((1-x).*((Aab./(Aab+x-Aab.*x))-(Aba./(1+(Aba-1).*x))))./(x-x.*Aab+Aab);
+Gb=@(x) exp(x.*((Aba./(Aba+(1-x)-Aba.*(1-x)))-(Aab./(1+(Aab-1).*(1-x)))))./((1-x)-(1-x).*Aba+Aba);
+Pas=@(t) exp(11.6834-(3816.44./((t+273.15)-46.13)));% Vapour Pressure Water
+Pbs=@(t) exp(10.9237-(3166.38./((t+273.15)-80.15)));% Vapour Pressure N-Propanol
+
+Funct=@(t,x) (x.*Ga(x)./P).*Pas(t)+((1-x).*Gb(x)./P).*Pbs(t)-1;
+initguess=84.549;
+
+ya=@(x) x.*Ga(x).*Pas(fequil(Funct,x,initguess))./P;
+
+Xd=xd; Xb=xb;% Xd=Distillate frac, Xb=Bottoms frac
+XX=(0:+0.005:1)';
+%% Plots equilibrium phase line and stepping for distillation stages
+%% Plotting
+fplot(ya,[0 0.553834449327514])
+hold on
+plot(xc,yc,'m',[0 0.553834449327514],[0 0.553834449327514])% Plot 45 degree curve and equilibrium curve
+%axis equal
+hold on
+%% Steps
+fmcsteps(Xd,Xb,ya,X,ys,yr,8,'r')
+%close all
+%% END

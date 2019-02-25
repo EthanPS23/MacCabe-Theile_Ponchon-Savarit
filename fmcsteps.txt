@@ -1,0 +1,155 @@
+% Created by Ethan Shipley
+% Function to draw the steps for a MacCabe and Thiele diagram
+% Xd is the distillate mol or mass fraction
+% Xb is the bottoms mol or mass fraction
+% ya is the phase equilibrium curve y-coordinates
+% X is the x coordinates
+% ys is the linear function for the stripping section
+% yr is the linear function for the rectifying section
+% fs is the desired number of stages in either the rectifying or stripping
+% section of the distillation column. If optimum location is desired then
+% enter -1 for fs.
+% r is where the user defines if the desired number of stages is in the
+% rectifying or stripping section. To designate stripping enter 'S', and
+% for rectifying section enter 'R'.
+function []=fmcsteps(Xd,Xb,ya,X,ys,yr,fs,r)
+ii=0;
+f=@(x) ya(x);
+funct=@(x) yr(x)-ys(x);
+xinit=0.5;
+xint=fnew(funct,xinit);
+ch=-1;
+if r=='S' || r=='s'
+    Xx=Xb;
+    Xdd=Xb;
+    while (true)
+        yu=1; yl=0; y=-1;xl=-1;xu=-1;x=-1;
+        %% For loop to find lower and upper bounds for y, x and T
+        y=f(Xx);
+        if Xx>xint && (fs==-1)
+            fy=@(x) yr(x)-y;
+        %
+        elseif ii>(fs-1) && fs~=-1 && Xx<xint % Checks if stepping off yr 
+            % past intercept of stripping and rectifying operating lines
+            fy=@(x) yr(x)-y;
+            ch=1;
+        elseif ~(Xx>xint && (fs==-1)) && ~(ii>(fs-1) && fs~=-1) && x>xint
+            % Checks if stepping off ys past intercept of stripping and 
+            % rectifying operating lines
+            fy=@(x) ys(x)-y;
+            ch=0;
+        %
+        elseif ii>(fs-1) && fs~=-1
+            fy=@(x) yr(x)-y;
+        else
+            fy=@(x) ys(x)-y;
+        end
+        xinit=Xx;
+        x=fnew(fy,xinit);
+        if x>xint && fs==-1
+            fy=@(x) yr(x)-y;
+            xinit=Xx;
+            x=fnew(fy,xinit);
+        elseif (fs-1)==ii && Xx>xint
+            % Checks if stepping off ys past intercept of stripping and 
+            % rectifying operating lines at desired stage
+            ch=0;
+            fy=@(x) yr(x)-y;
+            xinit=Xx;
+            x=fnew(fy,xinit);
+        elseif (fs-1)==ii
+            fy=@(x) yr(x)-y;
+            xinit=Xx;
+            x=fnew(fy,xinit);
+        end
+        if x>Xd
+            x=y;
+        end
+        xg1=[Xx; Xx];% x's for the horizontal step line
+        yg1=[Xdd,y];% y's for the horizontal step line
+        xg2=[Xx; x];% x's for the vertical step line
+        yg2=[y,y];% y's for the vertical step line
+        hold on
+        plot(xg1,yg1,'g',xg2,yg2,'g');
+        ii=ii+1;
+        if x<=Xb || x>=Xd
+            disp('The approximate number of stages is: ');
+            disp(ii);
+            break% break while if past Xb or Xd to stop step function
+        end
+        Xx=x;
+        Xdd=y;% make the new x on equilibrium the bottom of last step
+        clear yl yu xl xu Tl Tu xg1 xg2 yg1 yg2 T x y
+    end
+    if fs~=-1 && ch==0
+        xl=Xb;
+        funct=@(x) f(x)-ys(x);
+        xinit=xint;
+        xu=fnew(funct,xinit);
+        hold on
+        fplot(ys,[xl xu],'m')
+    elseif fs~=-1 && ch==1
+        xu=Xd;
+        funct=@(x) f(x)-yr(x);
+        xinit=Xb;
+        xl=fnew(funct,xinit);
+        hold on
+        fplot(yr,[xl xu],'m')
+    end
+elseif r=='R' || r=='r'
+    Xx=Xd;
+    Xdd=Xd;
+    while (true)
+        yu=1; yl=0; y=-1;xl=-1;xu=-1;x=-1;
+        %% For loop to find lower and upper bounds for y, x and T
+        funct=@(x) f(x)-Xdd;
+        xinit=Xdd;
+        x=fnew(funct,xinit);
+        if x>xint && (fs==-1)
+            y=yr(x);
+        elseif ii<(fs-1) && fs~=-1 && x<xint
+            y=yr(x);
+            ch=0;
+        elseif ~(x>xint && (fs==-1)) && ~(ii<(fs-1) && fs~=-1) && x>xint
+            y=ys(x);
+            ch=1;
+        elseif ii<(fs-1) && fs~=-1 
+            y=yr(x);
+        else
+            y=ys(x);
+        end
+        if x<Xb
+            y=x;
+        end
+        xg1=[x; Xx];% x's for the horizontal step line
+        yg1=[Xdd,Xdd];% y's for the horizontal step line
+        xg2=[x; x];% x's for the vertical step line
+        yg2=[Xdd,y];% y's for the vertical step line
+        hold on
+        plot(xg1,yg1,'g',xg2,yg2,'g');
+        ii=ii+1;
+        if x<=Xb || x>=Xd
+            disp('The approximate number of stages is: ');
+            disp(ii);
+            break% break while if past Xb or Xd to stop step function
+        end
+        Xx=x;
+        Xdd=y;% make the new x on equilibrium the bottom of last step
+        clear yl yu xl xu Tl Tu xg1 xg2 yg1 yg2 T x y
+    end
+    if fs~=-1 && ch==0
+        xu=Xd;
+        funct=@(x) f(x)-yr(x);
+        xinit=Xb;
+        xl=fnew(funct,xinit);
+        hold on
+        fplot(yr,[xl xu],'m')
+    elseif fs~=-1 && ch==1
+        xl=Xb;
+        funct=@(x) f(x)-ys(x);
+        xinit=Xd;
+        xu=fnew(funct,xinit);
+        hold on
+        fplot(ys,[xl xu],'m')
+    end
+end
